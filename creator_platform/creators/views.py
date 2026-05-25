@@ -15,8 +15,12 @@ from .models import EnrichmentExport
 def _get_es_connection():
     from elasticsearch import Elasticsearch
 
-    return Elasticsearch(settings.ELASTICSEARCH_URL)
-
+    return Elasticsearch(
+        settings.ELASTICSEARCH_URL,
+    basic_auth=("elastic", "i4Ukb9nruXaS--oUs71J"),
+    verify_certs=False,
+    ssl_show_warn=False,
+    )
 
 class DiscoveryView(APIView):
     """Search creators in Elasticsearch with filters."""

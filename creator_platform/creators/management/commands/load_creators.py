@@ -3,8 +3,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
-from elasticsearch import Elasticsearch
-from elasticsearch.helpers import bulk
+from elasticsearch import Elasticsearch, helpers
 
 
 class Command(BaseCommand):
@@ -20,7 +19,11 @@ class Command(BaseCommand):
         with open(seed_file, "r", encoding="utf-8") as f:
             creators_data = json.load(f)
 
-        es = Elasticsearch(settings.ELASTICSEARCH_URL)
+        es = Elasticsearch(
+            settings.ELASTICSEARCH_URL,
+            basic_auth=("elastic", "i4Ukb9nruXaS--oUs71J"),
+            verify_certs=False
+        )
 
         index_name = "creators"
 
@@ -69,9 +72,11 @@ class Command(BaseCommand):
                 }
             )
 
-        success, errors = bulk(es, actions)
+        success, failed = helpers.bulk(es, actions, raise_on_error=False)
+
         self.stdout.write(
             self.style.SUCCESS(f"Indexed {success} creators into Elasticsearch")
         )
-        if errors:
-            self.stderr.write(self.style.ERROR(f"Errors: {errors}"))
+
+        if failed:
+            self.stderr.write(self.style.ERROR(f"Some errors occurred: {failed}"))
