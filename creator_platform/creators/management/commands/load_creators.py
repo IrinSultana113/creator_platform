@@ -20,9 +20,12 @@ class Command(BaseCommand):
             creators_data = json.load(f)
 
         es = Elasticsearch(
-            settings.ELASTICSEARCH_URL,
-            basic_auth=("elastic", "i4Ukb9nruXaS--oUs71J"),
-            verify_certs=False
+        settings.ELASTICSEARCH_URL,
+        basic_auth=(
+            settings.ELASTICSEARCH_USERNAME,
+            settings.ELASTICSEARCH_PASSWORD,
+        ),
+        verify_certs=False,
         )
 
         index_name = "creators"

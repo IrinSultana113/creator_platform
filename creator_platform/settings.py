@@ -119,3 +119,5 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 # Elasticsearch
 ELASTICSEARCH_URL = "https://localhost:9200"
+ELASTICSEARCH_USERNAME = os.environ.get("ELASTICSEARCH_USERNAME", "elastic")
+ELASTICSEARCH_PASSWORD = os.environ.get("ELASTICSEARCH_PASSWORD", "i4Ukb9nruXaS--oUs71J")
