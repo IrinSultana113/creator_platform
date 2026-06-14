@@ -1,4 +1,5 @@
-import uuid
+import hashlib
+import secrets
 
 from rest_framework import status
 from rest_framework.permissions import AllowAny
@@ -17,8 +18,10 @@ class RegisterView(APIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        raw_key = uuid.uuid4().hex
-        APIKey.objects.create(key=raw_key, user=user)
+        raw_key = secrets.token_hex(32)
+        hashed_key = hashlib.sha256(raw_key.encode()).hexdigest()
+        
+        APIKey.objects.create(prefix = raw_key[:12], hashed_key = hashed_key, user=user)
 
         return Response(
             {
