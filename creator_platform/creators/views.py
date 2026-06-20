@@ -137,30 +137,106 @@ class BulkEnrichView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    MAX_UPLOAD_SIZE = 2 * 1024 * 1024  # 2MB
+
     def post(self, request):
         csv_file = request.FILES.get("file")
+        
         if not csv_file:
             return Response(
                 {"error": "A CSV file is required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        decoded = csv_file.read().decode("utf-8")
+        # 1. File size validation
+        
+        if csv_file.size > self.MAX_UPLOAD_SIZE:
+
+            return Response(
+                {
+                    "error": "File too large"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+        # 2. Safe UTF-8 decoding
+
+        try: 
+            decoded = csv_file.read().decode("utf-8")
+        except UnicodeDecodeError:
+            return Response(
+                {
+                    "error": "CSV must be UTF-8 encoded"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+
+        # 3. Validate CSV structure
         reader = csv.DictReader(io.StringIO(decoded))
-        usernames = [row["username"].strip() for row in reader]
+
+        if not reader.fieldnames or "username" not in reader.fieldnames:
+            return Response(
+                {
+                    "error": "CSV must contain username column"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        usernames = []
+        
+        for row in reader:
+            username = row.get("username")
+
+            if username:
+                usernames.append(
+                    username.strip()
+                )
+        
+        if not usernames:
+            return Response(
+                {
+                    "error": "No usernames found"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        
+        # 4. Single Elasticsearch query
 
         es = _get_es_connection()
+
+        search  = Search(
+            using=es,
+            index="creators"
+        )
+
+        search = search.query(
+            "terms",
+            username=usernames
+        )
+
+        response = search.execute()
+
+        # 5. Store ES results locally
+
+        hits_by_username = {
+              hit.username: hit
+              for hit in response
+
+        }
 
         enriched_rows = []
         not_found = []
 
-        for username in usernames:
-            search = Search(using=es, index="creators")
-            search = search.query("term", username=username)
-            response = search.execute()
+          # 6. Local lookup (no ES query)
 
-            if response.hits:
-                hit = response.hits[0]
+        for username in usernames:
+            
+            hit = hits_by_username.get(username)
+
+            if hit:
                 enriched_rows.append(
                     {
                         "username": hit.username,
@@ -177,7 +253,8 @@ class BulkEnrichView(APIView):
             else:
                 not_found.append(username)
 
-        # Build CSV content
+        # 7. Create CSV
+        
         output = io.StringIO()
         fieldnames = [
             "username",
