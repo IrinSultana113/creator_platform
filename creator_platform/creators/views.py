@@ -65,6 +65,9 @@ class DiscoveryView(APIView):
         if followers_filter:
             search = search.filter("range", followers_count=followers_filter)
 
+        # Return all matching creators (up to 1000)
+        search = search.extra(size=1000)
+
         response = search.execute()
 
         results = []
